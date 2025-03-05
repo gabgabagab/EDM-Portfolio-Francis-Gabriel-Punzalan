@@ -28,6 +28,6 @@ In this task we are give a raw data from excel to perform data cleaning and prep
 
 ## Here's the finish work
 - Normalized file
-[Normalized file]()
+[Normalized file](file/Normalized1.xlsx)
 - Finish file
 [Finish file]()
