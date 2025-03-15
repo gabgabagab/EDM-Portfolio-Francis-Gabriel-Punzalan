@@ -1,0 +1,365 @@
+
+## Uncleaned_DS_jobs - Uncleaned_DS_jobs
+
+
+let
+    Source = Csv.Document(File.Contents("C:\Users\COMLAB\Documents\Uncleaned_DS_jobs.csv"),[Delimiter=",", Columns=15, Encoding=1252, QuoteStyle=QuoteStyle.Csv]),
+    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"index", Int64.Type}, {"Job Title", type text}, {"Salary Estimate", type text}, {"Job Description", type text}, {"Rating", type number}, {"Company Name", type text}, {"Location", type text}, {"Headquarters", type text}, {"Size", type text}, {"Founded", Int64.Type}, {"Type of ownership", type text}, {"Industry", type text}, {"Sector", type text}, {"Revenue", type text}, {"Competitors", type text}}),
+    #"Extracted Text Before Delimiter" = Table.TransformColumns(#"Changed Type", {{"Salary Estimate", each Text.BeforeDelimiter(_, "("), type text}}),
+    #"Inserted Text Before Delimiter" = Table.AddColumn(#"Extracted Text Before Delimiter", "Text Before Delimiter", each Text.BeforeDelimiter([Salary Estimate], "K"), type text),
+    #"Renamed Columns" = Table.RenameColumns(#"Inserted Text Before Delimiter",{{"Text Before Delimiter", "Min Salary"}}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Renamed Columns",{"index", "Job Title", "Salary Estimate", "Min Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters" = Table.AddColumn(#"Reordered Columns", "Text Between Delimiters", each Text.BetweenDelimiters([Salary Estimate], "-", "K"), type text),
+    #"Renamed Columns1" = Table.RenameColumns(#"Inserted Text Between Delimiters",{{"Text Between Delimiters", "Max Salary"}}),
+    #"Reordered Columns1" = Table.ReorderColumns(#"Renamed Columns1",{"index", "Job Title", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Added Custom" = Table.AddColumn(#"Reordered Columns1", "Custom", each if Text.Contains([Job Title], "Data Scientist") then
+"Data Scientist"
+else if Text.Contains([Job Title], "Data Analyst") then
+"Data Analyst"
+else if Text.Contains([Job Title], "Data Engineer") then
+"Data Engineer"
+else if Text.Contains([Job Title], "Machine Learning") then
+"Machine Learning Engineer"
+else
+"Other"),
+    #"Filtered Rows" = Table.SelectRows(#"Added Custom", each true),
+    #"Renamed Columns2" = Table.RenameColumns(#"Filtered Rows",{{"Custom", "Role Type"}}),
+    #"Reordered Columns2" = Table.ReorderColumns(#"Renamed Columns2",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Reordered Columns2",{{"Role Type", type text}}),
+    #"Added Custom1" = Table.AddColumn(#"Changed Type1", "Location.1", each if [Location]= "New Jersey" then ", NJ"
+else if [Location] = "Remote" then ", other"
+else if [Location]= "United States" then ", other"
+else if [Location]= "Texas" then ", TX"
+else if [Location]= "Patuxent" then ", MA"
+else if [Location]= "California" then ", CA"
+else if [Location]= "Utah" then ", UT"
+else [Location]),
+    #"Reordered Columns3" = Table.ReorderColumns(#"Added Custom1",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location.1", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Split Column by Delimiter" = Table.SplitColumn(#"Reordered Columns3", "Location.1", Splitter.SplitTextByDelimiter(",", QuoteStyle.Csv), {"Location.1.1", "Location.1.2"}),
+    #"Renamed Columns3" = Table.RenameColumns(#"Split Column by Delimiter",{{"Location.1.2", "Location Correction 2"}, {"Location.1.1", "Location Correction 1"}}),
+    #"Filtered Rows1" = Table.SelectRows(#"Renamed Columns3", each true),
+    #"Replaced Value" = Table.ReplaceValue(#"Filtered Rows1","Anne Rundell","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Replaced Value1" = Table.ReplaceValue(#"Replaced Value","Anne Arundel","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Inserted Text Before Delimiter1" = Table.AddColumn(#"Replaced Value1", "Text Before Delimiter", each Text.BeforeDelimiter([Size], " "), type text),
+    #"Renamed Columns4" = Table.RenameColumns(#"Inserted Text Before Delimiter1",{{"Text Before Delimiter", "MinCompanySize"}}),
+    #"Reordered Columns4" = Table.ReorderColumns(#"Renamed Columns4",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters1" = Table.AddColumn(#"Reordered Columns4", "Text Between Delimiters", each Text.BetweenDelimiters([Size], " ", " ", 1, 0), type text),
+    #"Renamed Columns5" = Table.RenameColumns(#"Inserted Text Between Delimiters1",{{"Text Between Delimiters", "MaxCompanySize"}}),
+    #"Reordered Columns5" = Table.ReorderColumns(#"Renamed Columns5",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Filtered Rows2" = Table.SelectRows(#"Reordered Columns5", each ([Competitors] <> "-1") and ([Revenue] <> "Unknown / Non-Applicable") and ([Industry] <> "-1")),
+    #"Replaced Value2" = Table.ReplaceValue(#"Filtered Rows2","","10000+",Replacer.ReplaceValue,{"MaxCompanySize"}),
+    #"Inserted Text Before Delimiter2" = Table.AddColumn(#"Replaced Value2", "Text Before Delimiter", each Text.BeforeDelimiter([Company Name], "#(lf)"), type text),
+    #"Renamed Columns6" = Table.RenameColumns(#"Inserted Text Before Delimiter2",{{"Company Name", "Company Name (OLD)"}, {"Text Before Delimiter", "Company Name"}}),
+    #"Reordered Columns6" = Table.ReorderColumns(#"Renamed Columns6",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors", "Company Name (OLD)"}),
+    #"Removed Columns" = Table.RemoveColumns(#"Reordered Columns6",{"Job Description", "Company Name (OLD)"}),
+    #"Renamed Columns7" = Table.RenameColumns(#"Removed Columns",{{"Location Correction 1", "State Full Name"}})
+in
+    #"Renamed Columns7"
+
+
+## Sal By Role Type dup
+let
+    Source = Csv.Document(File.Contents("C:\Users\COMLAB\Documents\Uncleaned_DS_jobs.csv"),[Delimiter=",", Columns=15, Encoding=1252, QuoteStyle=QuoteStyle.Csv]),
+    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"index", Int64.Type}, {"Job Title", type text}, {"Salary Estimate", type text}, {"Job Description", type text}, {"Rating", type number}, {"Company Name", type text}, {"Location", type text}, {"Headquarters", type text}, {"Size", type text}, {"Founded", Int64.Type}, {"Type of ownership", type text}, {"Industry", type text}, {"Sector", type text}, {"Revenue", type text}, {"Competitors", type text}}),
+    #"Extracted Text Before Delimiter" = Table.TransformColumns(#"Changed Type", {{"Salary Estimate", each Text.BeforeDelimiter(_, "("), type text}}),
+    #"Inserted Text Before Delimiter" = Table.AddColumn(#"Extracted Text Before Delimiter", "Text Before Delimiter", each Text.BeforeDelimiter([Salary Estimate], "K"), type text),
+    #"Renamed Columns" = Table.RenameColumns(#"Inserted Text Before Delimiter",{{"Text Before Delimiter", "Min Salary"}}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Renamed Columns",{"index", "Job Title", "Salary Estimate", "Min Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters" = Table.AddColumn(#"Reordered Columns", "Text Between Delimiters", each Text.BetweenDelimiters([Salary Estimate], "-", "K"), type text),
+    #"Renamed Columns1" = Table.RenameColumns(#"Inserted Text Between Delimiters",{{"Text Between Delimiters", "Max Salary"}}),
+    #"Reordered Columns1" = Table.ReorderColumns(#"Renamed Columns1",{"index", "Job Title", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Added Custom" = Table.AddColumn(#"Reordered Columns1", "Custom", each if Text.Contains([Job Title], "Data Scientist") then
+"Data Scientist"
+else if Text.Contains([Job Title], "Data Analyst") then
+"Data Analyst"
+else if Text.Contains([Job Title], "Data Engineer") then
+"Data Engineer"
+else if Text.Contains([Job Title], "Machine Learning") then
+"Machine Learning Engineer"
+else
+"Other"),
+    #"Filtered Rows" = Table.SelectRows(#"Added Custom", each true),
+    #"Renamed Columns2" = Table.RenameColumns(#"Filtered Rows",{{"Custom", "Role Type"}}),
+    #"Reordered Columns2" = Table.ReorderColumns(#"Renamed Columns2",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Reordered Columns2",{{"Role Type", type text}}),
+    #"Added Custom1" = Table.AddColumn(#"Changed Type1", "Location.1", each if [Location]= "New Jersey" then ", NJ"
+else if [Location] = "Remote" then ", other"
+else if [Location]= "United States" then ", other"
+else if [Location]= "Texas" then ", TX"
+else if [Location]= "Patuxent" then ", MA"
+else if [Location]= "California" then ", CA"
+else if [Location]= "Utah" then ", UT"
+else [Location]),
+    #"Reordered Columns3" = Table.ReorderColumns(#"Added Custom1",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location.1", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Split Column by Delimiter" = Table.SplitColumn(#"Reordered Columns3", "Location.1", Splitter.SplitTextByDelimiter(",", QuoteStyle.Csv), {"Location.1.1", "Location.1.2"}),
+    #"Renamed Columns3" = Table.RenameColumns(#"Split Column by Delimiter",{{"Location.1.2", "Location Correction 2"}, {"Location.1.1", "Location Correction 1"}}),
+    #"Filtered Rows1" = Table.SelectRows(#"Renamed Columns3", each true),
+    #"Replaced Value" = Table.ReplaceValue(#"Filtered Rows1","Anne Rundell","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Replaced Value1" = Table.ReplaceValue(#"Replaced Value","Anne Arundel","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Inserted Text Before Delimiter1" = Table.AddColumn(#"Replaced Value1", "Text Before Delimiter", each Text.BeforeDelimiter([Size], " "), type text),
+    #"Renamed Columns4" = Table.RenameColumns(#"Inserted Text Before Delimiter1",{{"Text Before Delimiter", "MinCompanySize"}}),
+    #"Reordered Columns4" = Table.ReorderColumns(#"Renamed Columns4",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters1" = Table.AddColumn(#"Reordered Columns4", "Text Between Delimiters", each Text.BetweenDelimiters([Size], " ", " ", 1, 0), type text),
+    #"Renamed Columns5" = Table.RenameColumns(#"Inserted Text Between Delimiters1",{{"Text Between Delimiters", "MaxCompanySize"}}),
+    #"Reordered Columns5" = Table.ReorderColumns(#"Renamed Columns5",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Filtered Rows2" = Table.SelectRows(#"Reordered Columns5", each ([Competitors] <> "-1") and ([Revenue] <> "Unknown / Non-Applicable") and ([Industry] <> "-1")),
+    #"Replaced Value2" = Table.ReplaceValue(#"Filtered Rows2","","10000+",Replacer.ReplaceValue,{"MaxCompanySize"}),
+    #"Inserted Text Before Delimiter2" = Table.AddColumn(#"Replaced Value2", "Text Before Delimiter", each Text.BeforeDelimiter([Company Name], "#(lf)"), type text),
+    #"Renamed Columns6" = Table.RenameColumns(#"Inserted Text Before Delimiter2",{{"Company Name", "Company Name (OLD)"}, {"Text Before Delimiter", "Company Name"}}),
+    #"Reordered Columns6" = Table.ReorderColumns(#"Renamed Columns6",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors", "Company Name (OLD)"}),
+    #"Removed Columns" = Table.RemoveColumns(#"Reordered Columns6",{"Job Description", "Company Name (OLD)"}),
+    #"Removed Other Columns" = Table.SelectColumns(#"Removed Columns",{"Role Type", "Min Salary", "Max Salary"}),
+    #"Extracted Text After Delimiter" = Table.TransformColumns(#"Removed Other Columns", {{"Min Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Extracted Text After Delimiter1" = Table.TransformColumns(#"Extracted Text After Delimiter", {{"Max Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Extracted Text After Delimiter1",{{"Min Salary", Currency.Type}, {"Max Salary", Currency.Type}}),
+    #"Inserted Multiplication" = Table.AddColumn(#"Changed Type2", "Multiplication", each [Min Salary] * 100, Currency.Type),
+    #"Inserted Multiplication1" = Table.AddColumn(#"Inserted Multiplication", "Multiplication.1", each [Max Salary] * 100, Currency.Type),
+    #"Changed Type3" = Table.TransformColumnTypes(#"Inserted Multiplication1",{{"Multiplication", type text}, {"Multiplication.1", type text}}),
+    #"Removed Columns1" = Table.RemoveColumns(#"Changed Type3",{"Min Salary", "Max Salary"}),
+    #"Changed Type4" = Table.TransformColumnTypes(#"Removed Columns1",{{"Multiplication", Currency.Type}, {"Multiplication.1", Currency.Type}}),
+    #"Grouped Rows" = Table.Group(#"Changed Type4", {"Role Type"}, {{"Count", each Table.RowCount(_), type number}, {"All Rows", each _, type table}, {"Avg Min Sal", each List.Average([Multiplication]), type number}, {"Avg Max Sal", each List.Average([Multiplication.1]), type number}}),
+    #"Reordered Columns7" = Table.ReorderColumns(#"Grouped Rows",{"Role Type", "Count", "Avg Min Sal", "Avg Max Sal", "All Rows"})
+in
+    #"Reordered Columns7"
+
+
+
+##Sal By Role Size ref
+
+let
+    Source = #"Uncleaned_DS_jobs - Uncleaned_DS_jobs",
+    #"Removed Other Columns" = Table.SelectColumns(Source,{"Min Salary", "Max Salary", "Size"}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Removed Other Columns",{"Size", "Min Salary", "Max Salary"}),
+    #"Inserted Text After Delimiter" = Table.AddColumn(#"Reordered Columns", "Text After Delimiter", each Text.AfterDelimiter([Min Salary], "$"), type text),
+    #"Inserted Text After Delimiter1" = Table.AddColumn(#"Inserted Text After Delimiter", "Text After Delimiter.1", each Text.AfterDelimiter([Max Salary], "$"), type text),
+    #"Removed Columns" = Table.RemoveColumns(#"Inserted Text After Delimiter1",{"Min Salary", "Max Salary"}),
+    #"Renamed Columns" = Table.RenameColumns(#"Removed Columns",{{"Text After Delimiter", "Min Salary"}, {"Text After Delimiter.1", "Max Salary"}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns",{{"Min Salary", Currency.Type}, {"Max Salary", Currency.Type}}),
+    #"Multiplied Column" = Table.TransformColumns(#"Changed Type", {{"Min Salary", each _ * 100, Currency.Type}}),
+    #"Multiplied Column1" = Table.TransformColumns(#"Multiplied Column", {{"Max Salary", each _ * 100, Currency.Type}}),
+    #"Grouped Rows" = Table.Group(#"Multiplied Column1", {"Size"}, {{"Count", each Table.RowCount(_), type number}, {"Avg Min", each List.Average([Min Salary]), type number}, {"Avg Max", each List.Average([Max Salary]), type number}}),
+    #"Inserted Multiplication" = Table.AddColumn(#"Grouped Rows", "Multiplication", each [Avg Min] * 10, type number),
+    #"Inserted Multiplication1" = Table.AddColumn(#"Inserted Multiplication", "Multiplication.1", each [Avg Max] * 10, type number),
+    #"Renamed Columns1" = Table.RenameColumns(#"Inserted Multiplication1",{{"Multiplication", "Avg"}}),
+    #"Removed Columns1" = Table.RemoveColumns(#"Renamed Columns1",{"Avg Min", "Avg Max"}),
+    #"Renamed Columns2" = Table.RenameColumns(#"Removed Columns1",{{"Avg", "Avg Min Sal"}, {"Multiplication.1", "Avg Max Sal"}})
+in
+    #"Renamed Columns2"
+
+
+
+##Sal By State ref
+
+let
+    Source = #"Uncleaned_DS_jobs - Uncleaned_DS_jobs",
+    #"Removed Other Columns" = Table.SelectColumns(Source,{"Min Salary", "Max Salary", "State Full Name"}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Removed Other Columns",{"State Full Name", "Min Salary", "Max Salary"}),
+    #"Extracted Text After Delimiter" = Table.TransformColumns(#"Reordered Columns", {{"Min Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Extracted Text After Delimiter1" = Table.TransformColumns(#"Extracted Text After Delimiter", {{"Max Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Extracted Text After Delimiter1",{{"Min Salary", Currency.Type}, {"Max Salary", Currency.Type}}),
+    #"Inserted Multiplication" = Table.AddColumn(#"Changed Type", "Multiplication", each [Min Salary] * 1000, Currency.Type),
+    #"Inserted Multiplication1" = Table.AddColumn(#"Inserted Multiplication", "Multiplication.1", each [Max Salary] * 1000, Currency.Type),
+    #"Removed Columns" = Table.RemoveColumns(#"Inserted Multiplication1",{"Min Salary", "Max Salary"}),
+    #"Renamed Columns" = Table.RenameColumns(#"Removed Columns",{{"Multiplication", "Min Salary"}, {"Multiplication.1", "Max Salary"}}),
+    #"Grouped Rows" = Table.Group(#"Renamed Columns", {"State Full Name"}, {{"Count", each Table.RowCount(_), type number}, {"Avg Min Salary", each List.Average([Min Salary]), type number}, {"Avg Max Salary", each List.Average([Max Salary]), type number}})
+in
+    #"Grouped Rows"
+
+
+
+##states
+
+let
+    Source = Excel.Workbook(File.Contents("C:\Users\COMLAB\Documents\state_mapping.xlsx"), null, true),
+    states_Sheet = Source{[Item="states",Kind="Sheet"]}[Data],
+    #"Changed Type" = Table.TransformColumnTypes(states_Sheet,{{"Column1", type text}, {"Column2", type text}}),
+    #"Filtered Rows" = Table.SelectRows(#"Changed Type", each true),
+    #"Promoted Headers" = Table.PromoteHeaders(#"Filtered Rows", [PromoteAllScalars=true]),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Promoted Headers",{{"Full Name", type text}, {"2-letter USPS", type text}}),
+    #"Sorted Rows" = Table.Sort(#"Changed Type1",{{"2-letter USPS", Order.Ascending}})
+in
+    #"Sorted Rows"
+    
+
+
+let
+    Source = Csv.Document(File.Contents("C:\Users\COMLAB\Documents\Uncleaned_DS_jobs.csv"),[Delimiter=",", Columns=15, Encoding=1252, QuoteStyle=QuoteStyle.Csv]),
+    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"index", Int64.Type}, {"Job Title", type text}, {"Salary Estimate", type text}, {"Job Description", type text}, {"Rating", type number}, {"Company Name", type text}, {"Location", type text}, {"Headquarters", type text}, {"Size", type text}, {"Founded", Int64.Type}, {"Type of ownership", type text}, {"Industry", type text}, {"Sector", type text}, {"Revenue", type text}, {"Competitors", type text}}),
+    #"Extracted Text Before Delimiter" = Table.TransformColumns(#"Changed Type", {{"Salary Estimate", each Text.BeforeDelimiter(_, "("), type text}}),
+    #"Inserted Text Before Delimiter" = Table.AddColumn(#"Extracted Text Before Delimiter", "Text Before Delimiter", each Text.BeforeDelimiter([Salary Estimate], "K"), type text),
+    #"Renamed Columns" = Table.RenameColumns(#"Inserted Text Before Delimiter",{{"Text Before Delimiter", "Min Salary"}}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Renamed Columns",{"index", "Job Title", "Salary Estimate", "Min Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters" = Table.AddColumn(#"Reordered Columns", "Text Between Delimiters", each Text.BetweenDelimiters([Salary Estimate], "-", "K"), type text),
+    #"Renamed Columns1" = Table.RenameColumns(#"Inserted Text Between Delimiters",{{"Text Between Delimiters", "Max Salary"}}),
+    #"Reordered Columns1" = Table.ReorderColumns(#"Renamed Columns1",{"index", "Job Title", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Added Custom" = Table.AddColumn(#"Reordered Columns1", "Custom", each if Text.Contains([Job Title], "Data Scientist") then
+"Data Scientist"
+else if Text.Contains([Job Title], "Data Analyst") then
+"Data Analyst"
+else if Text.Contains([Job Title], "Data Engineer") then
+"Data Engineer"
+else if Text.Contains([Job Title], "Machine Learning") then
+"Machine Learning Engineer"
+else
+"Other"),
+    #"Filtered Rows" = Table.SelectRows(#"Added Custom", each true),
+    #"Renamed Columns2" = Table.RenameColumns(#"Filtered Rows",{{"Custom", "Role Type"}}),
+    #"Reordered Columns2" = Table.ReorderColumns(#"Renamed Columns2",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Reordered Columns2",{{"Role Type", type text}}),
+    #"Added Custom1" = Table.AddColumn(#"Changed Type1", "Location.1", each if [Location]= "New Jersey" then ", NJ"
+else if [Location] = "Remote" then ", other"
+else if [Location]= "United States" then ", other"
+else if [Location]= "Texas" then ", TX"
+else if [Location]= "Patuxent" then ", MA"
+else if [Location]= "California" then ", CA"
+else if [Location]= "Utah" then ", UT"
+else [Location]),
+    #"Reordered Columns3" = Table.ReorderColumns(#"Added Custom1",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location.1", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Split Column by Delimiter" = Table.SplitColumn(#"Reordered Columns3", "Location.1", Splitter.SplitTextByDelimiter(",", QuoteStyle.Csv), {"Location.1.1", "Location.1.2"}),
+    #"Renamed Columns3" = Table.RenameColumns(#"Split Column by Delimiter",{{"Location.1.2", "Location Correction 2"}, {"Location.1.1", "Location Correction 1"}}),
+    #"Filtered Rows1" = Table.SelectRows(#"Renamed Columns3", each true),
+    #"Replaced Value" = Table.ReplaceValue(#"Filtered Rows1","Anne Rundell","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Replaced Value1" = Table.ReplaceValue(#"Replaced Value","Anne Arundel","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Inserted Text Before Delimiter1" = Table.AddColumn(#"Replaced Value1", "Text Before Delimiter", each Text.BeforeDelimiter([Size], " "), type text),
+    #"Renamed Columns4" = Table.RenameColumns(#"Inserted Text Before Delimiter1",{{"Text Before Delimiter", "MinCompanySize"}}),
+    #"Reordered Columns4" = Table.ReorderColumns(#"Renamed Columns4",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters1" = Table.AddColumn(#"Reordered Columns4", "Text Between Delimiters", each Text.BetweenDelimiters([Size], " ", " ", 1, 0), type text),
+    #"Renamed Columns5" = Table.RenameColumns(#"Inserted Text Between Delimiters1",{{"Text Between Delimiters", "MaxCompanySize"}}),
+    #"Reordered Columns5" = Table.ReorderColumns(#"Renamed Columns5",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Filtered Rows2" = Table.SelectRows(#"Reordered Columns5", each ([Competitors] <> "-1") and ([Revenue] <> "Unknown / Non-Applicable") and ([Industry] <> "-1")),
+    #"Replaced Value2" = Table.ReplaceValue(#"Filtered Rows2","","10000+",Replacer.ReplaceValue,{"MaxCompanySize"}),
+    #"Inserted Text Before Delimiter2" = Table.AddColumn(#"Replaced Value2", "Text Before Delimiter", each Text.BeforeDelimiter([Company Name], "#(lf)"), type text),
+    #"Renamed Columns6" = Table.RenameColumns(#"Inserted Text Before Delimiter2",{{"Company Name", "Company Name (OLD)"}, {"Text Before Delimiter", "Company Name"}}),
+    #"Reordered Columns6" = Table.ReorderColumns(#"Renamed Columns6",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors", "Company Name (OLD)"}),
+    #"Removed Columns" = Table.RemoveColumns(#"Reordered Columns6",{"Job Description", "Company Name (OLD)"}),
+    #"Renamed Columns7" = Table.RenameColumns(#"Removed Columns",{{"Location Correction 1", "State Full Name"}})
+in
+    #"Renamed Columns7"
+
+
+## Sal By Role Type dup
+let
+    Source = Csv.Document(File.Contents("C:\Users\COMLAB\Documents\Uncleaned_DS_jobs.csv"),[Delimiter=",", Columns=15, Encoding=1252, QuoteStyle=QuoteStyle.Csv]),
+    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"index", Int64.Type}, {"Job Title", type text}, {"Salary Estimate", type text}, {"Job Description", type text}, {"Rating", type number}, {"Company Name", type text}, {"Location", type text}, {"Headquarters", type text}, {"Size", type text}, {"Founded", Int64.Type}, {"Type of ownership", type text}, {"Industry", type text}, {"Sector", type text}, {"Revenue", type text}, {"Competitors", type text}}),
+    #"Extracted Text Before Delimiter" = Table.TransformColumns(#"Changed Type", {{"Salary Estimate", each Text.BeforeDelimiter(_, "("), type text}}),
+    #"Inserted Text Before Delimiter" = Table.AddColumn(#"Extracted Text Before Delimiter", "Text Before Delimiter", each Text.BeforeDelimiter([Salary Estimate], "K"), type text),
+    #"Renamed Columns" = Table.RenameColumns(#"Inserted Text Before Delimiter",{{"Text Before Delimiter", "Min Salary"}}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Renamed Columns",{"index", "Job Title", "Salary Estimate", "Min Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters" = Table.AddColumn(#"Reordered Columns", "Text Between Delimiters", each Text.BetweenDelimiters([Salary Estimate], "-", "K"), type text),
+    #"Renamed Columns1" = Table.RenameColumns(#"Inserted Text Between Delimiters",{{"Text Between Delimiters", "Max Salary"}}),
+    #"Reordered Columns1" = Table.ReorderColumns(#"Renamed Columns1",{"index", "Job Title", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Added Custom" = Table.AddColumn(#"Reordered Columns1", "Custom", each if Text.Contains([Job Title], "Data Scientist") then
+"Data Scientist"
+else if Text.Contains([Job Title], "Data Analyst") then
+"Data Analyst"
+else if Text.Contains([Job Title], "Data Engineer") then
+"Data Engineer"
+else if Text.Contains([Job Title], "Machine Learning") then
+"Machine Learning Engineer"
+else
+"Other"),
+    #"Filtered Rows" = Table.SelectRows(#"Added Custom", each true),
+    #"Renamed Columns2" = Table.RenameColumns(#"Filtered Rows",{{"Custom", "Role Type"}}),
+    #"Reordered Columns2" = Table.ReorderColumns(#"Renamed Columns2",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Reordered Columns2",{{"Role Type", type text}}),
+    #"Added Custom1" = Table.AddColumn(#"Changed Type1", "Location.1", each if [Location]= "New Jersey" then ", NJ"
+else if [Location] = "Remote" then ", other"
+else if [Location]= "United States" then ", other"
+else if [Location]= "Texas" then ", TX"
+else if [Location]= "Patuxent" then ", MA"
+else if [Location]= "California" then ", CA"
+else if [Location]= "Utah" then ", UT"
+else [Location]),
+    #"Reordered Columns3" = Table.ReorderColumns(#"Added Custom1",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location.1", "Headquarters", "Size", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Split Column by Delimiter" = Table.SplitColumn(#"Reordered Columns3", "Location.1", Splitter.SplitTextByDelimiter(",", QuoteStyle.Csv), {"Location.1.1", "Location.1.2"}),
+    #"Renamed Columns3" = Table.RenameColumns(#"Split Column by Delimiter",{{"Location.1.2", "Location Correction 2"}, {"Location.1.1", "Location Correction 1"}}),
+    #"Filtered Rows1" = Table.SelectRows(#"Renamed Columns3", each true),
+    #"Replaced Value" = Table.ReplaceValue(#"Filtered Rows1","Anne Rundell","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Replaced Value1" = Table.ReplaceValue(#"Replaced Value","Anne Arundel","MA",Replacer.ReplaceText,{"Location Correction 2"}),
+    #"Inserted Text Before Delimiter1" = Table.AddColumn(#"Replaced Value1", "Text Before Delimiter", each Text.BeforeDelimiter([Size], " "), type text),
+    #"Renamed Columns4" = Table.RenameColumns(#"Inserted Text Before Delimiter1",{{"Text Before Delimiter", "MinCompanySize"}}),
+    #"Reordered Columns4" = Table.ReorderColumns(#"Renamed Columns4",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Inserted Text Between Delimiters1" = Table.AddColumn(#"Reordered Columns4", "Text Between Delimiters", each Text.BetweenDelimiters([Size], " ", " ", 1, 0), type text),
+    #"Renamed Columns5" = Table.RenameColumns(#"Inserted Text Between Delimiters1",{{"Text Between Delimiters", "MaxCompanySize"}}),
+    #"Reordered Columns5" = Table.ReorderColumns(#"Renamed Columns5",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors"}),
+    #"Filtered Rows2" = Table.SelectRows(#"Reordered Columns5", each ([Competitors] <> "-1") and ([Revenue] <> "Unknown / Non-Applicable") and ([Industry] <> "-1")),
+    #"Replaced Value2" = Table.ReplaceValue(#"Filtered Rows2","","10000+",Replacer.ReplaceValue,{"MaxCompanySize"}),
+    #"Inserted Text Before Delimiter2" = Table.AddColumn(#"Replaced Value2", "Text Before Delimiter", each Text.BeforeDelimiter([Company Name], "#(lf)"), type text),
+    #"Renamed Columns6" = Table.RenameColumns(#"Inserted Text Before Delimiter2",{{"Company Name", "Company Name (OLD)"}, {"Text Before Delimiter", "Company Name"}}),
+    #"Reordered Columns6" = Table.ReorderColumns(#"Renamed Columns6",{"index", "Job Title", "Role Type", "Salary Estimate", "Min Salary", "Max Salary", "Job Description", "Rating", "Company Name", "Location", "Location Correction 1", "Location Correction 2", "Headquarters", "Size", "MinCompanySize", "MaxCompanySize", "Founded", "Type of ownership", "Industry", "Sector", "Revenue", "Competitors", "Company Name (OLD)"}),
+    #"Removed Columns" = Table.RemoveColumns(#"Reordered Columns6",{"Job Description", "Company Name (OLD)"}),
+    #"Removed Other Columns" = Table.SelectColumns(#"Removed Columns",{"Role Type", "Min Salary", "Max Salary"}),
+    #"Extracted Text After Delimiter" = Table.TransformColumns(#"Removed Other Columns", {{"Min Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Extracted Text After Delimiter1" = Table.TransformColumns(#"Extracted Text After Delimiter", {{"Max Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Extracted Text After Delimiter1",{{"Min Salary", Currency.Type}, {"Max Salary", Currency.Type}}),
+    #"Inserted Multiplication" = Table.AddColumn(#"Changed Type2", "Multiplication", each [Min Salary] * 100, Currency.Type),
+    #"Inserted Multiplication1" = Table.AddColumn(#"Inserted Multiplication", "Multiplication.1", each [Max Salary] * 100, Currency.Type),
+    #"Changed Type3" = Table.TransformColumnTypes(#"Inserted Multiplication1",{{"Multiplication", type text}, {"Multiplication.1", type text}}),
+    #"Removed Columns1" = Table.RemoveColumns(#"Changed Type3",{"Min Salary", "Max Salary"}),
+    #"Changed Type4" = Table.TransformColumnTypes(#"Removed Columns1",{{"Multiplication", Currency.Type}, {"Multiplication.1", Currency.Type}}),
+    #"Grouped Rows" = Table.Group(#"Changed Type4", {"Role Type"}, {{"Count", each Table.RowCount(_), type number}, {"All Rows", each _, type table}, {"Avg Min Sal", each List.Average([Multiplication]), type number}, {"Avg Max Sal", each List.Average([Multiplication.1]), type number}}),
+    #"Reordered Columns7" = Table.ReorderColumns(#"Grouped Rows",{"Role Type", "Count", "Avg Min Sal", "Avg Max Sal", "All Rows"})
+in
+    #"Reordered Columns7"
+
+
+
+##Sal By Role Size ref
+
+let
+    Source = #"Uncleaned_DS_jobs - Uncleaned_DS_jobs",
+    #"Removed Other Columns" = Table.SelectColumns(Source,{"Min Salary", "Max Salary", "Size"}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Removed Other Columns",{"Size", "Min Salary", "Max Salary"}),
+    #"Inserted Text After Delimiter" = Table.AddColumn(#"Reordered Columns", "Text After Delimiter", each Text.AfterDelimiter([Min Salary], "$"), type text),
+    #"Inserted Text After Delimiter1" = Table.AddColumn(#"Inserted Text After Delimiter", "Text After Delimiter.1", each Text.AfterDelimiter([Max Salary], "$"), type text),
+    #"Removed Columns" = Table.RemoveColumns(#"Inserted Text After Delimiter1",{"Min Salary", "Max Salary"}),
+    #"Renamed Columns" = Table.RenameColumns(#"Removed Columns",{{"Text After Delimiter", "Min Salary"}, {"Text After Delimiter.1", "Max Salary"}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns",{{"Min Salary", Currency.Type}, {"Max Salary", Currency.Type}}),
+    #"Multiplied Column" = Table.TransformColumns(#"Changed Type", {{"Min Salary", each _ * 100, Currency.Type}}),
+    #"Multiplied Column1" = Table.TransformColumns(#"Multiplied Column", {{"Max Salary", each _ * 100, Currency.Type}}),
+    #"Grouped Rows" = Table.Group(#"Multiplied Column1", {"Size"}, {{"Count", each Table.RowCount(_), type number}, {"Avg Min", each List.Average([Min Salary]), type number}, {"Avg Max", each List.Average([Max Salary]), type number}}),
+    #"Inserted Multiplication" = Table.AddColumn(#"Grouped Rows", "Multiplication", each [Avg Min] * 10, type number),
+    #"Inserted Multiplication1" = Table.AddColumn(#"Inserted Multiplication", "Multiplication.1", each [Avg Max] * 10, type number),
+    #"Renamed Columns1" = Table.RenameColumns(#"Inserted Multiplication1",{{"Multiplication", "Avg"}}),
+    #"Removed Columns1" = Table.RemoveColumns(#"Renamed Columns1",{"Avg Min", "Avg Max"}),
+    #"Renamed Columns2" = Table.RenameColumns(#"Removed Columns1",{{"Avg", "Avg Min Sal"}, {"Multiplication.1", "Avg Max Sal"}})
+in
+    #"Renamed Columns2"
+
+
+
+##Sal By State ref
+
+let
+    Source = #"Uncleaned_DS_jobs - Uncleaned_DS_jobs",
+    #"Removed Other Columns" = Table.SelectColumns(Source,{"Min Salary", "Max Salary", "State Full Name"}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Removed Other Columns",{"State Full Name", "Min Salary", "Max Salary"}),
+    #"Extracted Text After Delimiter" = Table.TransformColumns(#"Reordered Columns", {{"Min Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Extracted Text After Delimiter1" = Table.TransformColumns(#"Extracted Text After Delimiter", {{"Max Salary", each Text.AfterDelimiter(_, "$"), type text}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Extracted Text After Delimiter1",{{"Min Salary", Currency.Type}, {"Max Salary", Currency.Type}}),
+    #"Inserted Multiplication" = Table.AddColumn(#"Changed Type", "Multiplication", each [Min Salary] * 1000, Currency.Type),
+    #"Inserted Multiplication1" = Table.AddColumn(#"Inserted Multiplication", "Multiplication.1", each [Max Salary] * 1000, Currency.Type),
+    #"Removed Columns" = Table.RemoveColumns(#"Inserted Multiplication1",{"Min Salary", "Max Salary"}),
+    #"Renamed Columns" = Table.RenameColumns(#"Removed Columns",{{"Multiplication", "Min Salary"}, {"Multiplication.1", "Max Salary"}}),
+    #"Grouped Rows" = Table.Group(#"Renamed Columns", {"State Full Name"}, {{"Count", each Table.RowCount(_), type number}, {"Avg Min Salary", each List.Average([Min Salary]), type number}, {"Avg Max Salary", each List.Average([Max Salary]), type number}})
+in
+    #"Grouped Rows"
+
+
+
+##states
+
+let
+    Source = Excel.Workbook(File.Contents("C:\Users\COMLAB\Documents\state_mapping.xlsx"), null, true),
+    states_Sheet = Source{[Item="states",Kind="Sheet"]}[Data],
+    #"Changed Type" = Table.TransformColumnTypes(states_Sheet,{{"Column1", type text}, {"Column2", type text}}),
+    #"Filtered Rows" = Table.SelectRows(#"Changed Type", each true),
+    #"Promoted Headers" = Table.PromoteHeaders(#"Filtered Rows", [PromoteAllScalars=true]),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Promoted Headers",{{"Full Name", type text}, {"2-letter USPS", type text}}),
+    #"Sorted Rows" = Table.Sort(#"Changed Type1",{{"2-letter USPS", Order.Ascending}})
+in
+    #"Sorted Rows"
